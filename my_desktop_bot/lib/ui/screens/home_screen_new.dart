@@ -10,6 +10,7 @@ import 'dart:typed_data';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/scheduler.dart';
 import '../../models/chat_message.dart';
+import '../widgets/screenshot_editor.dart';
 
 /// דף הבית החדש - UI בלבד, כל הלוגיקה עוברת לקונטרולר
 class HomeScreenNew extends StatefulWidget {
@@ -491,7 +492,8 @@ class _HomeScreenNewState extends State<HomeScreenNew> {
                                                   ).then((value) async {
                                                     if (value ==
                                                         'uploadImage') {
-                                                      uploadImage();
+                                                      widget.chatController
+                                                          .uploadImage(context);
                                                     } else if (value ==
                                                             'screenshot' ||
                                                         value ==
@@ -529,6 +531,89 @@ class _HomeScreenNewState extends State<HomeScreenNew> {
                                             ],
                                           ),
                                         ),
+
+                                        // הוסף תצוגה מקדימה של draftImage מעל שורת ההקלדה
+                                        if (widget.chatController.draftImage !=
+                                            null)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 8.0,
+                                              right: 8.0,
+                                            ),
+                                            child: Stack(
+                                              alignment: Alignment.topLeft,
+                                              children: [
+                                                GestureDetector(
+                                                  onTap: () async {
+                                                    final edited = await Navigator.of(
+                                                      context,
+                                                    ).push<Uint8List>(
+                                                      MaterialPageRoute(
+                                                        builder:
+                                                            (
+                                                              _,
+                                                            ) => ScreenshotEditor(
+                                                              initialImage:
+                                                                  widget
+                                                                      .chatController
+                                                                      .draftImage!,
+                                                            ),
+                                                      ),
+                                                    );
+                                                    if (edited != null) {
+                                                      setState(() {
+                                                        widget
+                                                                .chatController
+                                                                .draftImage =
+                                                            edited;
+                                                      });
+                                                    }
+                                                  },
+                                                  child: ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                    child: Image.memory(
+                                                      widget
+                                                          .chatController
+                                                          .draftImage!,
+                                                      width: 80,
+                                                      height: 80,
+                                                      fit: BoxFit.cover,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Positioned(
+                                                  top: 0,
+                                                  left: 0,
+                                                  child: GestureDetector(
+                                                    onTap: () {
+                                                      setState(() {
+                                                        widget
+                                                            .chatController
+                                                            .draftImage = null;
+                                                      });
+                                                    },
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.black54,
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                      ),
+                                                      child: Icon(
+                                                        Icons.close,
+                                                        color: Colors.white,
+                                                        size: 18,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                       ],
                                     ),
 
@@ -610,7 +695,8 @@ class _HomeScreenNewState extends State<HomeScreenNew> {
                           widget.chatController.isListening
                               ? _stopListening
                               : _startListening,
-                      onImageUpload: uploadImage,
+                      onImageUpload:
+                          () => widget.chatController.uploadImage(context),
                       onAudioRecord: toggleAudioRecording,
                       isListening: widget.chatController.isListening,
                       isRecording: widget.chatController.isRecording,
@@ -974,10 +1060,6 @@ class _HomeScreenNewState extends State<HomeScreenNew> {
 
   void _handleSubmit([String? text]) async {
     await widget.chatController.handleSubmit(text);
-  }
-
-  void uploadImage() {
-    widget.chatController.uploadImage();
   }
 
   void takeScreenshot() {

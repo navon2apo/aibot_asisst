@@ -26,6 +26,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   late bool enableWhisper;
   late bool enableSpeechRecognition;
   late String speechLocale;
+  late bool allowDrawing;
   List<LocaleName> _locales = [];
   final SpeechToText _speechToText = SpeechToText();
   bool _isSpeechAvailable = false;
@@ -42,6 +43,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     enableWhisper = widget.initialSettings.enableWhisper;
     enableSpeechRecognition = widget.initialSettings.enableSpeechRecognition;
     speechLocale = widget.initialSettings.speechLocale;
+    allowDrawing = widget.initialSettings.allowDrawing;
 
     // Load available locales for speech recognition only if not on Windows
     if (!Platform.isWindows) {
@@ -182,6 +184,16 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   _locales.isNotEmpty &&
                   !Platform.isWindows)
                 _buildLocaleDropdown(),
+              _buildFeatureSwitch(
+                title: 'אפשר ציור אחרי צילום מסך',
+                value: allowDrawing,
+                onChanged: (value) {
+                  setState(() {
+                    allowDrawing = value;
+                  });
+                },
+                subtitle: 'הצג כלי ציור לאחר צילום מסך',
+              ),
             ],
           ),
         ),
@@ -202,6 +214,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
               enableSpeechRecognition:
                   Platform.isWindows ? false : enableSpeechRecognition,
               speechLocale: speechLocale,
+              allowDrawing: allowDrawing,
             );
             widget.onSave(newSettings);
             Navigator.pop(context);

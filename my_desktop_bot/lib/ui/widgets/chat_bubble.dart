@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/chat_message.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
@@ -33,37 +35,69 @@ class ChatBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (message.imageData != null)
-                  GestureDetector(
-                    onTap: () {
-                      // תצוגת התמונה בגדול בלחיצה
-                      showDialog(
-                        context: context,
-                        builder:
-                            (context) => Dialog(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Image.memory(
-                                    message.imageData!,
-                                    fit: BoxFit.contain,
+                  Stack(
+                    alignment: Alignment.topRight,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          // תצוגת התמונה בגדול בלחיצה
+                          showDialog(
+                            context: context,
+                            builder:
+                                (context) => Dialog(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Image.memory(
+                                        message.imageData!,
+                                        fit: BoxFit.contain,
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: Text('סגור'),
+                                      ),
+                                    ],
                                   ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: Text('סגור'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                      );
-                    },
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.memory(
-                        message.imageData!,
-                        width: 220,
-                        fit: BoxFit.cover,
+                                ),
+                          );
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.memory(
+                            message.imageData!,
+                            width: 220,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.download,
+                            size: 20,
+                            color: Colors.deepPurple,
+                          ),
+                          tooltip: 'הורד תמונה',
+                          onPressed: () async {
+                            final result = await FilePicker.platform.saveFile(
+                              dialogTitle: 'Save Image',
+                              fileName: 'chat_image.png',
+                            );
+                            if (result != null) {
+                              final file = File(result);
+                              await file.writeAsBytes(message.imageData!);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Image saved to $result'),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 if (message.imageData != null) SizedBox(height: 8),
                 Text(

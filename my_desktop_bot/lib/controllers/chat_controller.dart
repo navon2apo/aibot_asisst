@@ -10,6 +10,10 @@ import '../models/api_settings.dart';
 import 'dart:typed_data';
 import '../app_logger.dart';
 import '../services/screenshot_manager.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import '../ui/widgets/screenshot_editor.dart';
+import 'dart:io' show Platform, File;
+import 'package:file_picker/file_picker.dart';
 
 /// ChatController - שכבת state/business logic לניהול שיחה
 class ChatController extends ChangeNotifier {
@@ -84,6 +88,9 @@ class ChatController extends ChangeNotifier {
   bool get isResizing => _isResizing;
   dynamic windowManager;
 
+  // --- הוסף משתנה draftImage ---
+  Uint8List? draftImage;
+
   // Constructor
   ChatController({
     required this.chatRepo,
@@ -106,15 +113,17 @@ class ChatController extends ChangeNotifier {
   /// שליחת הודעה (טקסט)
   Future<void> handleSubmit([String? text]) async {
     final msg = text ?? messageController.text;
-    if (msg.trim().isEmpty) return;
+    if (msg.trim().isEmpty && draftImage == null) return;
     // Add user message
     final userMessage = ChatMessage(
       text: msg,
+      imageData: draftImage,
       isUser: true,
       timestamp: DateTime.now(),
     );
     chatHistory.add(userMessage);
     messageController.clear();
+    draftImage = null;
     isAssistantTyping = true;
     notifyListeners();
     saveChatMessage(userMessage);
@@ -128,6 +137,7 @@ class ChatController extends ChangeNotifier {
             chatHistory.length > 5
                 ? chatHistory.sublist(chatHistory.length - 5)
                 : chatHistory,
+        imageData: userMessage.imageData,
       );
       final assistantMessage = ChatMessage(
         text: response,
@@ -174,6 +184,17 @@ class ChatController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<Uint8List> _maybeEditImage(
+    BuildContext context,
+    Uint8List image,
+  ) async {
+    if (!apiSettings.allowDrawing) return image;
+    final edited = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute(builder: (_) => ScreenshotEditor(initialImage: image)),
+    );
+    return edited ?? image;
+  }
+
   // Screenshot
   Future<void> takeScreenshot(
     BuildContext context, {
@@ -199,19 +220,20 @@ class ChatController extends ChangeNotifier {
         notifyListeners();
         return;
       }
-      // צור הודעה חדשה עם התמונה
-      final screenshotMessage = ChatMessage(
-        text: result.caption,
-        imageData: result.bytes,
-        isUser: asUser,
-        timestamp: DateTime.now(),
-      );
-      chatHistory.add(screenshotMessage);
-      saveChatMessage(screenshotMessage);
-      AppLogger.instance.i('[DEBUG] takeScreenshot: screenshot added to chat');
-      temporaryMessage = null;
+      // עריכה במידת הצורך
+      final editedImage = await _maybeEditImage(context, result.bytes!);
+      // דחיסה תמידית
+      final compressed =
+          (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
+              ? editedImage
+              : await FlutterImageCompress.compressWithList(
+                editedImage,
+                quality: 70,
+              );
+      // שמור ב-draftImage
+      draftImage = compressed;
       notifyListeners();
-      scrollToBottom();
+      temporaryMessage = null;
     } catch (e, stack) {
       AppLogger.instance.e('[DEBUG][ERROR] takeScreenshot: Exception: $e');
       AppLogger.instance.e(stack);
@@ -221,10 +243,44 @@ class ChatController extends ChangeNotifier {
   }
 
   // Image upload
-  Future<void> uploadImage() async {
-    // Stub: implement image upload logic
-    // ...
-    notifyListeners();
+  Future<void> uploadImage(BuildContext context) async {
+    print('[DEBUG] uploadImage: Opening file picker...');
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    print('[DEBUG] uploadImage: Picker result = $result');
+    if (result != null) {
+      print('[DEBUG] uploadImage: result.files = \\${result.files}');
+      print(
+        '[DEBUG] uploadImage: result.files.single.bytes = \\${result.files.single.bytes}',
+      );
+    }
+    Uint8List? imageBytes = result?.files.single.bytes;
+    if (imageBytes == null &&
+        result != null &&
+        result.files.single.path != null) {
+      print(
+        '[DEBUG] uploadImage: bytes is null, reading from path: \\${result.files.single.path}',
+      );
+      imageBytes = await File(result.files.single.path!).readAsBytes();
+      print(
+        '[DEBUG] uploadImage: Loaded imageBytes from file, length = \\${imageBytes.length}',
+      );
+    }
+    if (imageBytes != null) {
+      print(
+        '[DEBUG] uploadImage: Picked imageBytes.length = \\${imageBytes.length}',
+      );
+      print('[DEBUG] uploadImage: Calling _maybeEditImage...');
+      final edited = await _maybeEditImage(context, imageBytes);
+      print(
+        '[DEBUG] uploadImage: _maybeEditImage returned \\${edited != null ? 'image of length \\${edited.length}' : 'null'}',
+      );
+      draftImage = edited;
+      print('[DEBUG] uploadImage: draftImage set. Calling notifyListeners...');
+      notifyListeners();
+      print('[DEBUG] uploadImage: notifyListeners called.');
+    } else {
+      print('[DEBUG] uploadImage: No image selected or bytes are null.');
+    }
   }
 
   // Voice

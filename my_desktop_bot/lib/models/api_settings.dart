@@ -25,6 +25,9 @@ class APISettings {
   @HiveField(6)
   String speechLocale = 'he_IL';
 
+  @HiveField(7)
+  bool allowDrawing = false;
+
   APISettings({
     this.openAIKey,
     this.model = 'gpt-4o',
@@ -33,6 +36,7 @@ class APISettings {
     this.enableWhisper = false,
     this.enableSpeechRecognition = true,
     this.speechLocale = 'he_IL',
+    this.allowDrawing = false,
   });
 
   APISettings.fromJson(Map<String, dynamic> json)
@@ -42,7 +46,8 @@ class APISettings {
       enableBrowsing = json['enableBrowsing'] ?? true,
       enableWhisper = json['enableWhisper'] ?? false,
       enableSpeechRecognition = json['enableSpeechRecognition'] ?? true,
-      speechLocale = json['speechLocale'] ?? 'he_IL';
+      speechLocale = json['speechLocale'] ?? 'he_IL',
+      allowDrawing = json['allowDrawing'] ?? false;
 
   Map<String, dynamic> toJson() => {
     'openAIKey': openAIKey,
@@ -52,5 +57,6 @@ class APISettings {
     'enableWhisper': enableWhisper,
     'enableSpeechRecognition': enableSpeechRecognition,
     'speechLocale': speechLocale,
+    'allowDrawing': allowDrawing,
   };
 }
