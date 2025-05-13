@@ -1,0 +1,109 @@
+# === OBJECTIVE =========================================================
+Refactor lib/screens/home_screen.dart so it contains **UI only**.
+All business‑logic must live in dedicated services under lib/services/
+or in a new ChatController. Remove any dead / duplicated code.
+
+# === GLOBAL RULES ======================================================
+1. DO NOT leave Hive/file‑IO/GPT calls inside widgets.
+2. Keep each service "pure": no BuildContext, setState or Widgets.
+3. After refactor, home_screen.dart should be < 300 LOC (exc. imports).
+4. No unused imports / variables (run `dart fix --apply` at end).
+5. Keep public APIs of services stable (unless noted below).
+
+# === STEP‑BY‑STEP TASKS ===============================================
+
+## 1. Analyse duplicates
+* Open lib/screens/home_screen.dart  
+  ‑ Identify blocks listed below and compare to service layer.
+
+Duplicated candidates & expected owners  
+| Lines (≈) | Functionality                     | Target service file               |
+|-----------|-----------------------------------|-----------------------------------|
+| 240‑330   | Screenshot capture & error flow   | lib/services/screenshot_service.dart |
+| 350‑430   | Audio recording start/stop        | lib/services/audio_recording_service.dart |
+| 450‑520   | Speech‑to‑text stream handling    | lib/services/speech_service.dart |
+| 540‑640   | Whisper transcription upload      | lib/services/whisper_service.dart |
+| 660‑780   | GPT chat completion + parsing     | lib/services/gpt_service.dart |
+| 800‑950   | Hive save / load chat sessions    | ⇒ NEW file: lib/repositories/chat_repo.dart |
+
+## 2. Move logic / Delete duplicates
+For every block above:
+1. If identical logic already exists in the matching service →  
+   *DELETE* the block from home_screen.dart.  
+   Replace it with a single call, e.g.  
+   ```dart
+   final bytes = await context.read<ScreenshotService>().capture();
+   ```
+
+2. If the service **doesn't** contain that logic →
+   *CUT* it out of home\_screen.dart and *PASTE* into the correct service,
+   wrapped in a public method. Then call that method from HomeScreen.
+
+## 3. Introduce ChatController (state layer)
+
+* Create lib/controllers/chat\_controller.dart
+
+  ```dart
+  class ChatController extends ChangeNotifier {
+    final ChatRepo _repo;
+    final GptService _gpt;
+    final ScreenshotService _ss;
+    // …constructor injection…
+
+    Future<void> sendText(String text) { … }       // uses _gpt & _repo
+    Future<void> addScreenshot() { … }             // uses _ss & _repo
+  }
+  ```
+* HomeScreen must obtain ChatController via Provider/Riverpod and call
+  high‑level methods only. No low‑level work in the widget.
+
+## 4. Remove dead services
+
+Search for references to each file under lib/services/ using
+`Ctrl + Shift + F`.
+
+* If a service file has **zero** usages after refactor → delete the file
+  and clean imports.
+
+## 5. Clean up HomeScreen
+
+* Ensure only build()/UI helpers remain.
+* setState should be replaced with `context.watch<ChatController>()`
+  listeners where possible.
+* Keep animation / gesture code; everything else should be delegated.
+
+## 6. Finalise
+
+* Run `dart fix --apply` and `dart format .`.
+* Ensure all tests pass (`flutter test`).
+* Verify `flutter run -d windows` opens the app and all features still work.
+
+# === END ===============================================================
+
+```
+
+
+
+עדכנתי את המסמך `mission_doc_homescreen` עם סיכום התקדמות ברור בראש הדף:
+
+---
+
+# === PROGRESS (2024-06-10) =============================================
+
+- בוצע: ניתוח מלא של home_screen.dart וזיהוי כל הבלוקים העסקיים (צילום מסך, הקלטה, דיבור, Whisper, GPT, Hive/sessions).
+- בוצע: בדיקת כל השירותים ב-lib/services/ ואימות מה קיים ומה חסר.
+- בוצע: יצירת lib/repositories/chat_repo.dart והעברת כל ניהול השיחות/היסטוריה/טעינה/שמירה/מחיקה אליו.
+- בוצע: עדכון home_screen.dart כך שכל ניהול השיחות/היסטוריה מתבצע דרך ChatRepo בלבד (אין קריאות ישירות ל-Hive/SharedPreferences ב-UI).
+- בוצע: תיקוני בטיחות זמניים לאתחול apiSettings ו-GPTService כדי למנוע קריסות (עדיין יש לוגיקה עסקית ב-HomeScreen, יטופל בהמשך).
+- לא בוצע: העברת כל הלוגיקה העסקית (שליחה, קבלת תשובה, אינטגרציה עם שירותים) ל-ChatController.
+- לא בוצע: הוצאת ניהול הגדרות/מפתח API לשירות ייעודי.
+- לא בוצע: מחיקת כל הלוגיקה העסקית מ-HomeScreen והשארת UI בלבד.
+
+---
+
+המסמך מוכן להמשך עבודה מסודרת לפי שלבי הריפקטור.
+
+**אפשר להמשיך לשלב הבא: יצירת ChatController והעברת הלוגיקה העסקית אליו.  
+רוצה שאתחיל?**
+
+```
